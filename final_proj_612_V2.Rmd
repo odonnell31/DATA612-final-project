@@ -1,0 +1,106 @@
+---
+title: "DATA612 Final Project"
+author: "Michael O'Donnell"
+date: "July 10, 2019"
+output: html_document
+---
+
+# Overview: 
+
+## Dataset: 157,500 book reviews by 700 users
+## User Recommendations: Binary, 1 for 'liked' and 0 for 'did not like'
+## Recommender System: User-Based Collaborative Filtering system
+
+### Loading the necessary libraries
+```{r, results = 'hide'}
+library(data.table)
+library(ggplot2)
+library(recommenderlab)
+library(tibble)
+library(dplyr)
+library(readr)
+set.seed(1)
+```
+
+### Reading in the dataset as a CSV file
+```{r, results = 'hide'}
+book_reviews <- read_csv("book_reviews.csv", col_types =  cols(
+  .default = col_integer(),
+  user = col_character()
+))
+```
+
+### most frequently liked book
+```{r}
+most_liked <- which.max(colMeans(book_reviews[2:288]))
+most_liked
+```
+
+### least frequently liked book
+```{r}
+least_liked <- which.min(colMeans(book_reviews[2:288]))
+least_liked
+```
+
+### Replacing the 0's and 1's with TRUE and FALSE, in preparation for Binary Rating Matrix
+```{r, results = 'hide'}
+ratings <- book_reviews %>% 
+  # now we replace all NAs by 0
+  mutate_each(funs(replace(., is.na(.), 0))) %>%
+  # now we convert all 0 to false and 1 to true
+  # (except the user column, because it contains names and neighter 0 nor 1)
+  mutate_each(funs(as.logical), -user) %>% 
+  # dplyr uses a own structure called tibble, but we want dataframes
+  # .. so we convert it to one
+  as.data.frame() %>%
+  # .. and we convert a column to the rowname of the dataframe
+  column_to_rownames(var ="user") 
+```
+
+### Creating a Binary Rating Matrix
+```{r, results = 'hide'}
+binaryBookRatings <- as.matrix(ratings) %>% as("binaryRatingMatrix")
+```
+
+### View the size of the book review data
+```{r}
+object.size(binaryBookRatings)
+object.size(as(binaryBookRatings, "matrix"))
+```
+
+### Setting up the UBCF recommender model
+```{r, results = 'hide'}
+model <- Recommender(data = binaryBookRatings, method = "UBCF", 
+                     parameter = list(method = "cosine"))
+```
+
+### Creating 1 book recommednations for each user
+```{r echo = T, results = 'hide'}
+recommendations <- predict(model, binaryBookRatings, n = 1)
+```
+
+### See recommedations for all users
+```{r}
+#getList(recommendations)
+```
+
+### see recommended book for 1 random test user
+```{r}
+user_one <- recommendations@items[[sample(1:700, 1)]]
+test_book_one <- recommendations@itemLabels[user_one]
+cat("User", user_one, ":", test_book_one)
+```
+
+### Turn all recommendations into dataframe
+```{r echo = T, results = 'hide'}
+book_recs <- as(recommendations, "matrix") %>% as.data.frame()
+book_recs[is.na(book_recs)] <- 0
+```
+
+### Find the top 5 recommended books by the UBCF system
+```{r}
+colCount = colSums(book_recs[-1])
+topFiveIds = order(colCount,decreasing=TRUE)[1:5] + 1 # From Joris
+topFiveCols = names(book_recs[topFiveIds])
+topFiveCols
+```
