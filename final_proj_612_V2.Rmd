@@ -5,6 +5,8 @@ date: "July 10, 2019"
 output: html_document
 ---
 
+# YouTube link: https://www.youtube.com/watch?v=_UsC71HwmXQ
+
 # Overview: 
 
 ## Dataset: 157,500 book reviews by 700 users
